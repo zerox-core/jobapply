@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+openai
+playwright
+python-docx
+pypdf
+PyYAML

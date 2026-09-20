@@ -1,0 +1,36 @@
+# jobapply 网申自动化配置
+# 使用方法：复制本文件为 config.yaml，然后按注释填好你自己的路径与模型。
+# config.yaml 已被 .gitignore 忽略，不会提交到仓库。
+port: 8899
+
+# 网申「上传简历」字段使用的附件文件绝对路径（建议 PDF），配好后 AI 才会自动挂附件
+# 把简历 PDF 放到 resume/ 目录（该目录已被 .gitignore 忽略），再改成对应文件名
+resume_attachment: F:\jobapply\resume\你的简历.pdf
+
+# 进阶：让自动化直接接管你日常使用的浏览器（登录态天然共享，再也不用手动登录两次）
+# 默认（注释掉）= 使用独立自动化浏览器，登录态保存在 browser_profile 目录，与日常浏览器互不影响。
+# 想接管日常浏览器：
+#   1) 关掉所有 Chrome / Edge 窗口
+#   2) 用调试端口启动浏览器（二选一）：
+#        "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+#        "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --remote-debugging-port=9222
+#   3) 取消下一行注释，重启本服务
+# cdp_endpoint: http://127.0.0.1:9222
+
+llm:
+  # 方式一（推荐）：从 llm_hub 统一读取 key 与渠道，不在本项目重复存储
+  # 指向你的 llm_hub data.json（含 providers/api_keys）
+  hub_config: C:\path\to\your\llm_hub\data.json
+  cooldown_seconds: 300
+  chain:
+    # chain 里按顺序写「provider 名 + 模型」，某个失败自动换下一个
+    # provider 名必须能在 hub_config 里找到
+    - provider: your-provider-1
+      model: your-model-1
+    - provider: your-provider-2
+      model: your-model-2
+
+  # 方式二：不用 llm_hub，直接写 OpenAI 兼容接口（与方式一二选一）
+  # base_url: https://api.openai.com/v1
+  # api_key: sk-xxxxxxxx
+  # model: gpt-4o-mini

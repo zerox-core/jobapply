@@ -1,0 +1,16 @@
+# ===== 个人数据：永不入库 =====
+data/
+resume/
+browser_profile/
+config.yaml
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ===== 本地临时脚本 / 日志 =====
+_*.py
+*.log

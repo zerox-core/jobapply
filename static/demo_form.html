@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>演示网申表单</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; background: #f4f6fb; margin: 0; padding: 24px; }
+  .card { max-width: 640px; margin: 0 auto; background: #fff; border: 1px solid #e2e6ef; border-radius: 8px; padding: 24px 32px; }
+  h1 { font-size: 20px; }
+  .row { margin-bottom: 14px; }
+  label { display: block; font-size: 13px; color: #333; margin-bottom: 4px; }
+  input[type=text], input[type=date], input[type=month], input[type=tel], input[type=email], select, textarea {
+    width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccd2e0; border-radius: 4px; font-size: 14px; }
+  .radio-group label { display: inline-block; margin-right: 16px; }
+  button { background: #2f5ddf; color: #fff; border: 0; padding: 10px 32px; border-radius: 4px; font-size: 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>演示科技 · 2027 届校园招聘</h1>
+  <p style="color:#666;font-size:13px">岗位：后端开发工程师（校招）· 本页面为本地演示表单，不会真的提交。</p>
+  <form onsubmit="event.preventDefault(); alert('演示提交成功');">
+    <div class="row"><label for="name">姓名 *</label><input id="name" name="name" type="text" required></div>
+    <div class="row"><label>性别</label><div class="radio-group">
+      <label><input type="radio" name="gender" value="male"> 男</label>
+      <label><input type="radio" name="gender" value="female"> 女</label>
+    </div></div>
+    <div class="row"><label for="birth">出生日期</label><input id="birth" name="birth" type="date"></div>
+    <div class="row"><label for="phone">手机号码 *</label><input id="phone" name="phone" type="tel" required placeholder="11 位手机号"></div>
+    <div class="row"><label for="email">邮箱 *</label><input id="email" name="email" type="email" required></div>
+    <div class="row"><label for="political">政治面貌</label><select id="political" name="political">
+      <option value="">请选择</option><option value="qz">群众</option>
+      <option value="gqt">共青团员</option><option value="gcd">中共党员</option><option value="other">其他</option>
+    </select></div>
+    <div class="row"><label for="degree">最高学历</label><select id="degree" name="degree">
+      <option value="">请选择</option><option value="bk">本科</option>
+      <option value="ss">硕士研究生</option><option value="bs">博士研究生</option>
+    </select></div>
+    <div class="row"><label for="school">毕业院校 *</label><input id="school" name="school" type="text" required></div>
+    <div class="row"><label for="major">专业 *</label><input id="major" name="major" type="text" required></div>
+    <div class="row"><label for="grad">毕业时间</label><input id="grad" name="grad" type="month"></div>
+    <div class="row"><label for="city">期望工作城市</label><input id="city" name="city" type="text" placeholder="如：北京 / 上海 / 深圳"></div>
+    <div class="row"><label for="intern">实习经历</label><textarea id="intern" name="intern" rows="3"></textarea></div>
+    <div class="row"><label for="project">项目经历</label><textarea id="project" name="project" rows="3"></textarea></div>
+    <div class="row"><label for="eval">自我评价</label><textarea id="eval" name="eval" rows="3"></textarea></div>
+    <div class="row"><label for="resume">上传简历（PDF）</label><input id="resume" name="resume" type="file" accept=".pdf"></div>
+    <button type="submit">提交申请</button>
+  </form>
+</div>
+</body>
+</html>

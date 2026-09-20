@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jobapply · 秋招网申自动化</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; background: #f4f6fb; margin: 0; color: #121722; font-size: 14px; }
+  a { color: #2f5ddf; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { background: #fff; border-bottom: 1px solid #e2e6ef; padding: 0 24px; display: flex; align-items: center; gap: 20px; height: 54px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 16px; margin: 0; display: flex; align-items: center; gap: 10px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 3px; background: #2f5ddf; display: inline-block; }
+  .tabs { display: flex; gap: 2px; margin-left: 8px; }
+  .tabs button { border: 0; background: none; padding: 7px 14px; font-size: 14px; cursor: pointer; border-radius: 6px; color: #6d778c; }
+  .tabs button:hover { color: #121722; background: #f0f3fa; }
+  .tabs button.on { background: #eef2fd; color: #2f5ddf; font-weight: 600; }
+  #status { margin-left: auto; color: #6d778c; font-size: 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid #e2e6ef; border-radius: 999px; background: #fff; white-space: nowrap; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: #c3cad9; }
+  .chip.on .dot { background: #1c8a4d; }
+
+  main { max-width: 1180px; margin: 18px auto 40px; padding: 0 16px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat { background: #fff; border: 1px solid #e2e6ef; border-radius: 8px; padding: 13px 16px; }
+  .stat .num { font-size: 22px; font-weight: 700; line-height: 1.1; }
+  .stat .lbl { color: #6d778c; font-size: 12px; margin-top: 3px; }
+  .stat .sub { color: #6d778c; font-size: 11px; margin-top: 2px; }
+
+  .card { background: #fff; border: 1px solid #e2e6ef; border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .stepno { width: 20px; height: 20px; border-radius: 50%; background: #eef2fd; color: #2f5ddf; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  input[type=text], input[type=url], textarea, select { width: 100%; padding: 7px 10px; border: 1px solid #ccd2e0; border-radius: 6px; font-size: 13px; background: #fff; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #dce4fb; border-color: #2f5ddf; }
+  textarea { font-family: Consolas, monospace; }
+  .btn { background: #2f5ddf; color: #fff; border: 0; padding: 7px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .btn:hover { background: #2750c4; }
+  .btn.sub { background: #fff; color: #2f5ddf; border: 1px solid #2f5ddf; }
+  .btn.sub:hover { background: #f5f8ff; }
+  .btn.gray { background: #eef0f5; color: #333; }
+  .btn.danger { background: #fff; color: #b5542f; border: 1px solid #ddc4b7; }
+  .btn.danger:hover { background: #fbf2ed; }
+  .btn.mini { padding: 3px 10px; font-size: 12px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #eef0f5; vertical-align: top; }
+  th { color: #6d778c; font-weight: 500; font-size: 12px; white-space: nowrap; }
+  tr:hover td { background: #fafbfd; }
+
+  .row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 0; }
+
+  #log { height: 200px; overflow-y: auto; background: #f6f8fb; border: 1px solid #e2e6ef; color: #3a4356; font-family: Consolas, monospace; font-size: 12px; padding: 10px 12px; border-radius: 6px; white-space: pre-wrap; }
+  #log .err { color: #b5542f; }
+
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: #eef0f5; color: #555; white-space: nowrap; }
+  .tag.blue { background: #eef2fd; color: #2f5ddf; }
+  .tag.green { background: #e8f7ee; color: #1c8a4d; }
+  .tag.orange { background: #fbf2ed; color: #b5542f; }
+  .tag.red { background: #fbeaea; color: #a03030; }
+  .muted { color: #6d778c; font-size: 12px; }
+  .conf { font-size: 12px; color: #6d778c; }
+
+  #toast { position: fixed; top: 66px; right: 18px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+  .tmsg { background: #fff; border: 1px solid #e2e6ef; border-left: 3px solid #2f5ddf; border-radius: 6px; padding: 10px 14px; font-size: 13px; box-shadow: 0 1px 3px rgba(18,23,34,.06); max-width: 380px; }
+  .tmsg.err { border-left-color: #b5542f; }
+
+  .loginlist .it { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #eef0f5; }
+  .loginlist .it:last-child { border-bottom: 0; }
+  .loginlist .dom { font-weight: 600; }
+  .empty { color: #6d778c; padding: 18px 0; text-align: center; }
+
+  /* 对话助手面板 */
+  #chatFab { position: fixed; right: 22px; bottom: 22px; z-index: 200; min-width: 52px; height: 52px; border-radius: 26px; background: #2f5ddf; color: #fff; border: 0; font-size: 15px; font-weight: 600; padding: 0 18px; cursor: pointer; box-shadow: 0 2px 10px rgba(18,23,34,.22); }
+  #chatFab:hover { background: #2750c4; }
+  #chatFab .badge { position: absolute; top: -4px; right: -4px; background: #b5542f; color: #fff; border-radius: 999px; font-size: 11px; padding: 1px 7px; display: none; }
+  #chatPanel { position: fixed; right: 22px; bottom: 84px; z-index: 200; width: 370px; max-width: calc(100vw - 44px); height: 500px; max-height: calc(100vh - 120px); background: #fff; border: 1px solid #e2e6ef; border-radius: 10px; box-shadow: 0 6px 22px rgba(18,23,34,.16); display: none; flex-direction: column; overflow: hidden; }
+  #chatPanel.open { display: flex; }
+  #chatHead { padding: 10px 14px; border-bottom: 1px solid #eef0f5; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  #chatHead .muted { font-weight: 400; }
+  #chatMsgs { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #f6f8fb; }
+  .cmsg { max-width: 86%; padding: 8px 11px; border-radius: 8px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .cmsg.user { align-self: flex-end; background: #2f5ddf; color: #fff; }
+  .cmsg.assistant { align-self: flex-start; background: #fff; border: 1px solid #e2e6ef; }
+  .cmsg .acts { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .cmsg .acts .tag { font-size: 11px; }
+  #chatInputRow { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #eef0f5; }
+  #chatInputRow input { flex: 1; }
+  #chatInputRow .btn { flex: 0 0 auto; }
+
+  /* stats 色条点缀 */
+  .stats .stat:nth-child(1) { border-left: 3px solid #2f5ddf; }
+  .stats .stat:nth-child(2) { border-left: 3px solid #22a06b; }
+  .stats .stat:nth-child(3) { border-left: 3px solid #c99227; }
+  .stats .stat:nth-child(4) { border-left: 3px solid #7a8c3f; }
+
+  /* 简历页 */
+  #dropZone { border: 2px dashed #ccd2e0; border-radius: 8px; padding: 28px 20px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  #dropZone:hover, #dropZone.over { border-color: #2f5ddf; background: #f5f8ff; }
+  #dropZone .big { font-size: 15px; font-weight: 600; }
+  #dropZone .link { color: #2f5ddf; text-decoration: underline; }
+  .pinfo { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; }
+  .pinfo .pname { font-size: 20px; font-weight: 700; margin-right: 6px; }
+  .pinfo .kv { color: #3a4356; font-size: 13px; }
+  .pinfo .kv b { color: #6d778c; font-weight: 500; margin-right: 4px; }
+  .blk h3 { font-size: 13px; color: #6d778c; font-weight: 600; margin: 16px 0 6px; }
+  .it2 { padding: 9px 0; border-bottom: 1px solid #eef0f5; }
+  .it2:last-child { border-bottom: 0; }
+  .it2 .t { font-weight: 600; }
+  .it2 .s { color: #6d778c; font-size: 12px; margin-top: 2px; }
+  .it2 .d { font-size: 13px; color: #3a4356; margin-top: 4px; white-space: pre-wrap; }
+  .it3 { margin: 8px 0 2px 12px; padding-left: 10px; border-left: 2px solid #e3e8f2; }
+  .it3 .t2 { font-weight: 600; font-size: 13px; color: #121722; }
+  .it3 .d { font-size: 13px; color: #3a4356; margin-top: 3px; white-space: pre-wrap; }
+  .skillcloud { display: flex; flex-wrap: wrap; gap: 6px; }
+  .notecard { border-left: 3px solid #c99227; font-size: 13px; line-height: 1.75; color: #3a4356; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="brand-dot"></span>jobapply 秋招网申自动化</h1>
+  <div class="tabs">
+    <button data-tab="resume" class="on">简历</button>
+    <button data-tab="pool">职位库</button>
+    <button data-tab="jobs">任务</button>
+    <button data-tab="login">登录态</button>
+    <button data-tab="work">填写工作台</button>
+  </div>
+  <span id="status"></span>
+</header>
+<main>
+  <div class="stats">
+    <div class="stat"><div class="num" id="stPool">-</div><div class="lbl">职位库（飞书同步）</div><div class="sub" id="stPoolSub"></div></div>
+    <div class="stat"><div class="num" id="stJobs">-</div><div class="lbl">投递任务</div><div class="sub" id="stJobsSub"></div></div>
+    <div class="stat"><div class="num" id="stResume">-</div><div class="lbl">简历</div><div class="sub">附件版在 config.yaml 配置</div></div>
+    <div class="stat"><div class="num" id="stLogin">-</div><div class="lbl">已保存登录态</div><div class="sub">微信 / QQ 扫码一次，长期复用</div></div>
+  </div>
+
+  <!-- 简历 -->
+  <section id="tab-resume">
+    <div class="card">
+      <h2>上传简历</h2>
+      <div id="dropZone">
+        <div class="big">把简历文件拖到这里，或 <span class="link">点击选择文件</span></div>
+        <div class="muted" style="margin-top:6px" id="dropHint">支持 docx / pdf / md / txt · 上传后自动结构化</div>
+      </div>
+      <input type="file" id="resumeFile" accept=".docx,.pdf,.md,.txt" hidden>
+      <div class="muted" style="margin-top:8px">网申「上传简历附件」字段用的成品 PDF 在 config.yaml 的 resume_attachment 配置，与这里的结构化内容互不干扰。</div>
+    </div>
+    <div id="profileView"></div>
+    <div class="card" id="profileRawCard" style="display:none">
+      <details>
+        <summary class="muted" style="cursor:pointer">高级：直接编辑原始 JSON（一般不用动）</summary>
+        <textarea id="profileJson" rows="14" style="margin-top:10px"></textarea>
+        <div style="margin-top:10px"><button class="btn sub" id="btnSaveProfile">保存修订</button></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- 职位库 -->
+  <section id="tab-pool" style="display:none">
+    <div class="card">
+      <h2>职位库 <span id="poolSummary" class="muted" style="font-weight:400"></span></h2>
+      <div class="row">
+        <input type="text" id="poolQ" placeholder="搜索公司 / 岗位 / 方向 / 城市…">
+        <select id="poolMatch" style="flex:0 0 170px"><option value="">全部匹配度</option></select>
+        <select id="poolLinkType" style="flex:0 0 130px">
+          <option value="">全部链接</option>
+          <option value="direct">直达岗位页</option>
+          <option value="entry">官网入口</option>
+        </select>
+        <select id="poolState" style="flex:0 0 110px">
+          <option value="">全部状态</option>
+          <option value="招聘中">招聘中</option>
+          <option value="即将截止">即将截止</option>
+          <option value="已失效">已失效</option>
+        </select>
+        <label style="flex:0 0 auto;align-self:center" class="muted"><input type="checkbox" id="poolHasUrl" checked> 仅有效链接</label>
+        <label style="flex:0 0 auto;align-self:center" class="muted"><input type="checkbox" id="poolHideExp" checked> 隐藏截止/失效</label>
+        <button class="btn" id="btnPoolSearch" style="flex:0 0 auto">搜索</button>
+      </div>
+      <table id="poolTable"><thead><tr><th style="width:30px">选</th><th>公司</th><th>岗位</th><th>匹配度</th><th>链接</th><th>方向 / 学历</th><th>地点</th><th>截止</th><th>状态</th><th>入口</th></tr></thead><tbody></tbody></table>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <button class="btn sub" id="btnPoolPrev">上一页</button>
+        <span id="poolPageInfo" class="muted"></span>
+        <button class="btn sub" id="btnPoolNext">下一页</button>
+        <button class="btn" id="btnPoolPick" style="margin-left:auto">加入任务（勾选）</button>
+      </div>
+      <div class="muted" style="margin-top:8px">来源：飞书表格「2027届秋招校招信息汇总」（已按你更新的字段重新同步）。链接分类为规则自动判定：「直达岗位页」打开即是该岗位投递，「官网入口」需进站后自行定位岗位。截止 / 已失效 / 无有效链接的职位不能加入任务。</div>
+    </div>
+  </section>
+
+  <!-- 任务 -->
+  <section id="tab-jobs" style="display:none">
+    <div class="card">
+      <h2>新增网申任务</h2>
+      <div class="row"><input type="text" id="jCompany" placeholder="公司，如：演示科技"><input type="text" id="jPosition" placeholder="岗位，如：后端开发工程师"></div>
+      <div class="row"><input type="url" id="jUrl" placeholder="网申入口链接 https://…"><button class="btn" id="btnAddJob" style="flex:0 0 auto">添加</button></div>
+      <div class="muted">批量入口在「职位库」页勾选加入；这里也可以手动补录单个任务。</div>
+    </div>
+    <div class="card">
+      <h2>任务列表 <span class="muted" style="font-weight:400" id="jobsCount"></span></h2>
+      <table id="jobTable"><thead><tr>
+        <th style="width:30px"><input type="checkbox" id="jobSelAll" title="全选"></th>
+        <th>公司</th><th>岗位</th><th>状态</th><th>截止</th><th>链接</th><th style="width:170px">操作</th>
+      </tr></thead><tbody></tbody></table>
+      <div style="margin-top:12px">
+        <button class="btn danger" id="btnJobDelSel">删除勾选的任务</button>
+        <span class="muted" style="margin-left:10px">删除后，来自职位库的记录状态会还原为「待投递」，可以重新加入。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 登录态 -->
+  <section id="tab-login" style="display:none">
+    <div class="card notecard">
+      <h2>为什么我在自己浏览器里打开还是未登录？</h2>
+      系统用的是<b>独立自动化浏览器</b>，登录态保存在它专属的 browser_profile 目录——和你日常浏览器是两套、互不相通（有意隔离，不动你日常浏览器的数据）。所以正确姿势是<b>一切操作都从这里进</b>：在下方「打开去登录」登录一次，之后职位库 / 任务里的链接都点「打开」，系统会在自动化浏览器里打开并自动带上登录态。<br>
+      <span class="muted">进阶：也可以让系统直接接管你日常的 Chrome / Edge（config.yaml 里配 cdp_endpoint，步骤见该文件注释），那样连这一次登录都省掉。</span>
+    </div>
+    <div class="card">
+      <h2>登录态管理（浏览器 Cookie 持久化保存）</h2>
+      <div class="row">
+        <input type="url" id="lgUrl" placeholder="站点地址，如 join.qq.com 或完整 https:// 链接">
+        <button class="btn" id="btnLoginOpen" style="flex:0 0 auto">打开去登录</button>
+      </div>
+      <div style="margin-bottom:6px">
+        <span class="muted">常用：</span>
+        <button class="btn sub mini" data-lg="https://join.qq.com" style="margin:2px 4px 2px 0">腾讯校招 join.qq.com</button>
+        <button class="btn sub mini" data-lg="https://campus.bytedance.com" style="margin:2px 0">字节校招</button>
+      </div>
+      <div class="muted" style="margin:10px 0 14px">点「打开去登录」会弹出浏览器窗口：用微信 / QQ / 手机号等方式扫码或登录一次，登录态会自动保存在本机 <b>browser_profile</b> 里——之后所有投递、填表都复用这份登录状态，不需要每次重登。登录完成后直接关掉浏览器或点「忘记」以外的操作即可，状态已存好。</div>
+      <div class="loginlist" id="loginList"></div>
+    </div>
+  </section>
+
+  <!-- 工作台 -->
+  <section id="tab-work" style="display:none">
+    <div class="card">
+      <h2><span class="stepno">1</span>启动浏览器（持久化登录态）</h2>
+      <div class="row">
+        <input type="url" id="wUrl" placeholder="网申入口链接">
+        <button class="btn" id="btnStart" style="flex:0 0 auto">启动并打开</button>
+        <button class="btn sub" id="btnDemo" style="flex:0 0 auto">打开演示表单</button>
+        <button class="btn gray" id="btnClose" style="flex:0 0 auto">关闭浏览器</button>
+      </div>
+      <div class="muted">浏览器打开后，在浏览器里手动完成登录 / 验证码 / 进入网申表单页，然后点第 2 步。入口页（首页）没有表单是正常的——要先进到真正的网申表单页。</div>
+    </div>
+    <div class="card">
+      <h2><span class="stepno">2</span>读取页面并 AI 预填</h2>
+      <button class="btn" id="btnExtract">读取表单 + AI 生成预填值</button>
+      <span id="extractInfo" class="muted" style="margin-left:10px"></span>
+      <div class="muted" style="margin-top:8px">点完没反应时先看下方运行日志——页面跳转中 / 未进表单页都会在这里给出原因。</div>
+    </div>
+    <div class="card" id="reviewCard" style="display:none">
+      <h2><span class="stepno">3</span>逐项核对预填值（可修改、可勾选跳过）</h2>
+      <table id="reviewTable"><thead><tr><th style="width:30px">填</th><th>字段</th><th>类型</th><th>预填值</th><th>依据 / 置信度</th></tr></thead><tbody></tbody></table>
+      <div style="margin-top:12px">
+        <button class="btn" id="btnFill">确认写入页面</button>
+        <span class="muted" style="margin-left:10px">写入后请在浏览器里逐项核对，提交按钮永远由你手动点击。</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>运行日志</h2>
+      <div id="log"></div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<button id="chatFab">助手<span class="badge" id="chatBadge"></span></button>
+<div id="chatPanel">
+  <div id="chatHead">网申助手<span class="muted">回答会写进知识库</span>
+    <button class="btn gray mini" id="chatClose" style="margin-left:auto">收起</button>
+  </div>
+  <div id="chatMsgs"></div>
+  <div id="chatInputRow">
+    <input type="text" id="chatInput" placeholder="如：GPA 3.6 / 打开某链接 / 读取表单并填充">
+    <button class="btn" id="chatSend">发送</button>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const api = async (path, opts={}) => {
+  if (opts.json !== undefined) {
+    opts.method = opts.method || "POST";
+    opts.headers = Object.assign({"Content-Type": "application/json"}, opts.headers || {});
+    opts.body = JSON.stringify(opts.json);
+    delete opts.json;
+  }
+  const r = await fetch(path, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.ok === false) throw new Error(d.error || ("HTTP " + r.status));
+  return d;
+};
+function toast(msg, err) {
+  const el = document.createElement("div");
+  el.className = "tmsg" + (err ? " err" : "");
+  el.textContent = msg;
+  $("#toast").appendChild(el);
+  setTimeout(() => el.remove(), err ? 7000 : 3500);
+}
+
+// tabs
+$$(".tabs button").forEach(b => b.onclick = () => {
+  $$(".tabs button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  ["resume","pool","jobs","login","work"].forEach(t => $("#tab-"+t).style.display = t === b.dataset.tab ? "" : "none");
+  if (b.dataset.tab === "login") loadLogins();
+});
+
+// log + ws
+function log(line, err) {
+  const el = $("#log");
+  const sp = document.createElement("span");
+  if (err) sp.className = "err";
+  sp.textContent = line + "\n";
+  el.appendChild(sp);
+  el.scrollTop = el.scrollHeight;
+}
+try {
+  const ws = new WebSocket("ws://" + location.host + "/ws");
+  ws.onmessage = ev => {
+    const d = JSON.parse(ev.data);
+    log(`[${d.ts}] [${d.kind}] ${d.msg}`, d.kind === "error");
+    if (d.kind === "chat") chatAdd("assistant", d.msg, d.actions);  // 系统主动消息进对话面板
+  };
+  ws.onclose = () => log("[ws] 连接断开，刷新页面重连");
+} catch (e) { log("[ws] 不可用：" + e); }
+
+// 对话助手面板
+let CHAT_OPEN = false, CHAT_UNREAD = 0, CHAT_HIST_LOADED = false;
+function chatAdd(role, text, actions) {
+  const box = $("#chatMsgs");
+  const el = document.createElement("div");
+  el.className = "cmsg " + role;
+  el.textContent = text;
+  if (actions && actions.length) {
+    const a = document.createElement("div");
+    a.className = "acts";
+    actions.forEach(x => {
+      const s = document.createElement("span");
+      s.className = "tag " + (x.ok === false ? "red" : "green");
+      s.textContent = x.detail || x.op || "";
+      a.appendChild(s);
+    });
+    el.appendChild(a);
+  }
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+  if (!CHAT_OPEN && role !== "user") {
+    CHAT_UNREAD++;
+    const b = $("#chatBadge");
+    b.style.display = "";
+    b.textContent = CHAT_UNREAD;
+  }
+}
+async function chatLoadHistory() {
+  try {
+    const d = await api("/api/chat/history");
+    $("#chatMsgs").innerHTML = "";
+    (d.history || []).forEach(m => chatAdd(m.role === "user" ? "user" : "assistant", m.content, m.actions));
+  } catch (e) {}
+}
+function chatToggle(open) {
+  CHAT_OPEN = open;
+  $("#chatPanel").classList.toggle("open", open);
+  if (open) {
+    CHAT_UNREAD = 0;
+    $("#chatBadge").style.display = "none";
+    if (!CHAT_HIST_LOADED) { CHAT_HIST_LOADED = true; chatLoadHistory(); }
+    $("#chatInput").focus();
+  }
+}
+async function chatSend() {
+  const inp = $("#chatInput");
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = "";
+  chatAdd("user", text);
+  $("#chatSend").disabled = true;
+  try {
+    const d = await api("/api/chat", {json: {message: text}});
+    chatAdd("assistant", d.reply, d.actions);
+  } catch (e) { chatAdd("assistant", "出错了：" + e.message); }
+  $("#chatSend").disabled = false;
+  inp.focus();
+}
+$("#chatFab").onclick = () => chatToggle(!CHAT_OPEN);
+$("#chatClose").onclick = () => chatToggle(false);
+$("#chatSend").onclick = chatSend;
+$("#chatInput").addEventListener("keydown", e => { if (e.key === "Enter") chatSend(); });
+
+// status + KPI
+async function refreshStatus() {
+  try {
+    const d = await api("/api/status");
+    $("#status").innerHTML =
+      `<span class="chip ${d.session ? "on" : ""}"><span class="dot"></span>浏览器${d.session ? "运行中" : "未启动"}</span>` +
+      `<span class="chip">任务 ${d.jobs}</span><span class="chip">职位库 ${d.pool}</span>`;
+    $("#stPool").textContent = d.pool;
+    $("#stJobs").textContent = d.jobs;
+    $("#stResume").textContent = d.profile ? "已就绪" : "未上传";
+    $("#stResume").style.color = d.profile ? "#1c8a4d" : "";
+    $("#stLogin").textContent = d.logins;
+  } catch (e) { $("#status").textContent = "后端未连接"; }
+}
+setInterval(refreshStatus, 5000); refreshStatus();
+
+// resume
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function blkItem(title, sub, desc, extra) {
+  return `<div class="it2"><div class="t">${title}</div>`
+    + (sub ? `<div class="s">${sub}</div>` : "")
+    + (desc ? `<div class="d">${desc}</div>` : "")
+    + (extra || "") + `</div>`;
+}
+function renderProfile(p) {
+  const box = $("#profileView");
+  if (!p) {
+    box.innerHTML = '<div class="card"><div class="empty">还没有简历——把文件拖到上面的区域，系统会自动结构化并在这里生成可读简历。</div></div>';
+    $("#profileRawCard").style.display = "none";
+    return;
+  }
+  $("#profileRawCard").style.display = "";
+  $("#profileJson").value = JSON.stringify(p, null, 2);
+  const b = p.basic || {}, exp = p.expected || {};
+  const kv = (k, v) => v ? `<span class="kv"><b>${k}</b>${esc(v)}</span>` : "";
+  let head = `<span class="pname">${esc(b.name || "（未命名）")}</span>`
+    + kv("电话", b.phone) + kv("邮箱", b.email) + kv("出生", b.birth)
+    + kv("政治面貌", b.political) + kv("户籍", b.hukou);
+  if (typeof b.links === "string") {
+    if (b.links) head += `<span class="kv"><b>链接</b><a href="${esc(b.links)}" target="_blank" rel="noopener">${esc(b.links)}</a></span>`;
+  } else {
+    Object.entries(b.links || {}).forEach(([k, v]) => {
+      if (v) head += `<span class="kv"><b>${esc(k)}</b><a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a></span>`;
+    });
+  }
+  const expStr = [exp.position, exp.city, exp.salary].filter(Boolean).join(" · ");
+  let html = `<div class="card"><h2>我的简历</h2><div class="pinfo">${head}</div>`
+    + (expStr ? `<div class="muted" style="margin-top:8px">期望：${esc(expStr)}</div>` : "");
+  const span = e => esc([e.start, e.end].filter(Boolean).join(" ~ "));
+  const txt = v => Array.isArray(v) ? v.map(esc).join("；") : esc(v || "");
+  const detailHtml = arr => (arr || []).filter(d => d && (d.name || d.description)).map(d =>
+    `<div class="it3"><div class="t2">${esc(d.name || "")}</div>`
+    + (d.description ? `<div class="d">${esc(d.description)}</div>` : "") + `</div>`).join("");
+  const blocks = [
+    ["教育经历", (p.education || []).map(e => blkItem(
+      `${esc(e.school || "")} · ${esc(e.major || "")}`,
+      [e.degree, span(e), e.gpa ? "GPA " + e.gpa : ""].filter(Boolean).map(esc).join(" · "),
+      txt(e.highlights)))],
+    ["实习经历", (p.internships || []).map(e => blkItem(
+      `${esc(e.company || "")} · ${esc(e.role || "")}`, span(e),
+      esc(e.description || ""), detailHtml(e.details)))],
+    ["项目经历", (p.projects || []).map(e => blkItem(
+      esc(e.name || "") + (e.role ? ` · ${esc(e.role)}` : ""), span(e),
+      esc(e.description || ""),
+      (e.tech ? `<div class="s">技术栈：${esc(e.tech)}</div>` : "")
+      + (e.links ? `<div class="s">${esc(e.links)}</div>` : "")
+      + detailHtml(e.details)))],
+    ["校园经历", (p.activities || []).map(a => blkItem(
+      esc(a.name || ""), span(a), esc(a.description || "")))],
+    ["获奖", (p.awards || []).filter(Boolean).map(a => blkItem(esc(a), "", ""))],
+    ["证书", (p.certs || []).filter(Boolean).map(a => blkItem(esc(a), "", ""))],
+  ];
+  blocks.forEach(([t, items]) => {
+    if (items.length) html += `<div class="blk"><h3>${t}</h3>${items.join("")}</div>`;
+  });
+  const skills = (p.skills || []).filter(Boolean);
+  if (skills.length)
+    html += `<div class="blk"><h3>技能</h3><div class="skillcloud">${skills.map(s => `<span class="tag blue">${esc(s)}</span>`).join("")}</div></div>`;
+  if (p.self_eval) html += `<div class="blk"><h3>自我评价</h3><div class="d">${esc(p.self_eval)}</div></div>`;
+  box.innerHTML = html + "</div>";
+}
+async function loadProfile() {
+  try {
+    const d = await api("/api/profile");
+    renderProfile(d.profile || null);
+  } catch (e) { renderProfile(null); }
+}
+loadProfile();
+async function uploadResume(f) {
+  if (!f) return;
+  $("#dropHint").textContent = `正在结构化「${f.name}」…（LLM 解析需要十几秒）`;
+  try {
+    const buf = await f.arrayBuffer();
+    const d = await api("/api/profile/upload?filename=" + encodeURIComponent(f.name),
+      {method: "POST", headers: {"Content-Type": "application/octet-stream"}, body: buf});
+    renderProfile(d.profile);
+    toast("简历结构化完成");
+  } catch (e) { toast("结构化失败：" + e.message, 1); }
+  $("#dropHint").textContent = "支持 docx / pdf / md / txt · 上传后自动结构化";
+  refreshStatus();
+}
+const dz = $("#dropZone");
+dz.onclick = () => $("#resumeFile").click();
+dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+dz.ondragleave = () => dz.classList.remove("over");
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); uploadResume(e.dataTransfer.files[0]); };
+$("#resumeFile").onchange = e => uploadResume(e.target.files[0]);
+$("#btnSaveProfile").onclick = async () => {
+  try {
+    const obj = JSON.parse($("#profileJson").value);
+    await api("/api/profile", {method: "PUT", json: obj});
+    renderProfile(obj);
+    toast("已保存");
+  } catch (e) { toast("保存失败：" + e.message, 1); }
+};
+
+// 链接默认在自动化浏览器打开（共享登录态）
+async function openInBot(url) {
+  try {
+    await api("/api/session/open", {json: {url}});
+    toast("已在自动化浏览器打开（自动携带登录态）");
+  } catch (e) { toast("打开失败：" + e.message, 1); }
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-openbot]");
+  if (a) { e.preventDefault(); openInBot(a.dataset.openbot); }
+});
+
+// pool 职位库
+let POOL = {page: 1, total: 0, size: 30};
+const LINK_LABEL = {direct: ["直达", "tag green"], entry: ["入口", "tag"], email: ["邮箱", "tag"], invalid: ["无效", "tag red"], none: ["无", "tag"]};
+const STATE_TAG = {"招聘中": "tag green", "即将截止": "tag orange", "已失效": "tag red"};
+async function loadPoolSummary() {
+  try {
+    const d = await api("/api/pool/summary");
+    const bs = d.by_state || {};
+    $("#poolSummary").textContent = `共 ${d.total} 条 · 高匹配 ${d.by_match["⭐⭐⭐ 高匹配"] || 0} · 直达 ${d.by_link.direct || 0} · 招聘中 ${bs["招聘中"] || 0} · 即将截止 ${bs["即将截止"] || 0} · 已失效 ${bs["已失效"] || 0}`;
+    $("#stPoolSub").textContent = `直达 ${d.by_link.direct || 0} · 招聘中 ${bs["招聘中"] || 0} · 截止/失效 ${d.expired}`;
+    const sel = $("#poolMatch");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">全部匹配度</option>' +
+      Object.keys(d.by_match).map(m => `<option value="${m}">${m}（${d.by_match[m]}）</option>`).join("");
+    sel.value = cur;
+  } catch (e) {}
+}
+async function loadPool() {
+  const q = encodeURIComponent($("#poolQ").value.trim());
+  const m = encodeURIComponent($("#poolMatch").value);
+  const lt = encodeURIComponent($("#poolLinkType").value);
+  const st = encodeURIComponent($("#poolState").value);
+  const hu = $("#poolHasUrl").checked ? 1 : 0;
+  const he = $("#poolHideExp").checked ? 1 : 0;
+  const d = await api(`/api/pool?q=${q}&match=${m}&link_type=${lt}&state=${st}&has_url=${hu}&hide_expired=${he}&page=${POOL.page}&size=${POOL.size}`);
+  POOL.total = d.total;
+  const tb = $("#poolTable tbody");
+  tb.innerHTML = "";
+  d.items.forEach(p => {
+    const tr = document.createElement("tr");
+    const matchTag = p.match === "⭐⭐⭐ 高匹配" ? "tag green" : "tag";
+    const ltInfo = LINK_LABEL[p.link_type] || ["未知", "tag"];
+    const link = p.url ? `<a href="${p.url}" data-openbot="${p.url}" title="在自动化浏览器打开（自动携带登录态）">打开</a>` : (p.link_type === "email" ? '<span class="muted">邮箱投递</span>' : '<span class="muted">无</span>');
+    const pickable = p.url && !p.expired;
+    tr.style.opacity = p.expired ? ".45" : "";
+    const stateTag = p.apply_state ? `<span class="${STATE_TAG[p.apply_state] || "tag"}">${p.apply_state}</span>` : "";
+    tr.innerHTML = `<td><input type="checkbox" class="pck" value="${p.id}" ${pickable ? "" : "disabled"}></td>
+      <td>${p.company}</td>
+      <td style="max-width:220px">${p.title}</td>
+      <td><span class="${matchTag}">${p.match || ""}</span></td>
+      <td><span class="${ltInfo[1]}">${ltInfo[0]}</span></td>
+      <td class="muted" style="max-width:120px">${p.direction || ""}${p.degree ? " / " + p.degree : ""}</td>
+      <td class="muted" style="max-width:120px">${p.location || ""}</td>
+      <td class="muted">${p.deadline || "-"}${p.expired && p.deadline ? '<br><span style="color:#b5542f">已截止</span>' : ""}</td>
+      <td>${stateTag}${p.status === "已加入任务" ? '<br><span class="tag blue">已加入任务</span>' : ""}</td>
+      <td>${link}</td>`;
+    tb.appendChild(tr);
+  });
+  const pages = Math.max(1, Math.ceil(POOL.total / POOL.size));
+  $("#poolPageInfo").textContent = `第 ${POOL.page}/${pages} 页 · 共 ${POOL.total} 条`;
+  $("#btnPoolPrev").disabled = POOL.page <= 1;
+  $("#btnPoolNext").disabled = POOL.page >= pages;
+}
+$("#btnPoolSearch").onclick = () => { POOL.page = 1; loadPool(); };
+$("#poolQ").addEventListener("keydown", e => { if (e.key === "Enter") { POOL.page = 1; loadPool(); } });
+$("#poolMatch").onchange = () => { POOL.page = 1; loadPool(); };
+$("#poolLinkType").onchange = () => { POOL.page = 1; loadPool(); };
+$("#poolState").onchange = () => { POOL.page = 1; loadPool(); };
+$("#poolHasUrl").onchange = () => { POOL.page = 1; loadPool(); };
+$("#poolHideExp").onchange = () => { POOL.page = 1; loadPool(); };
+$("#btnPoolPrev").onclick = () => { if (POOL.page > 1) { POOL.page--; loadPool(); } };
+$("#btnPoolNext").onclick = () => { POOL.page++; loadPool(); };
+$("#btnPoolPick").onclick = async () => {
+  const ids = [...document.querySelectorAll(".pck:checked")].map(c => c.value);
+  if (!ids.length) return toast("先勾选要加入的职位", 1);
+  try {
+    const d = await api("/api/pool/pick", {json: {ids}});
+    toast(`已加入 ${d.added} 个任务` + (d.skipped ? `，跳过 ${d.skipped} 个（重复或无链接）` : ""));
+    loadPool(); loadJobs(); refreshStatus();
+    document.querySelector('[data-tab="jobs"]').click();
+  } catch (e) { toast(e.message, 1); }
+};
+loadPoolSummary(); loadPool();
+
+// jobs 任务
+async function loadJobs() {
+  const d = await api("/api/jobs");
+  const tb = $("#jobTable tbody");
+  tb.innerHTML = "";
+  $("#jobsCount").textContent = d.jobs.length ? `（共 ${d.jobs.length} 个）` : "";
+  d.jobs.forEach(j => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><input type="checkbox" class="jck" value="${j.id}"></td>
+      <td>${j.company}</td><td>${j.position || ""}</td>
+      <td><span class="tag blue">${j.status}</span></td>
+      <td class="muted">${j.deadline || "-"}</td>
+      <td style="word-break:break-all;max-width:240px"><a href="${j.url}" data-openbot="${j.url}" title="在自动化浏览器打开（自动携带登录态）">${j.url}</a></td>
+      <td>
+        <button class="btn sub mini" data-act="fill" data-id="${j.id}">去填写</button>
+        <button class="btn danger mini" data-act="del" data-id="${j.id}">删除</button>
+      </td>`;
+    tr.querySelector('[data-act="fill"]').onclick = ev => {
+      $("#wUrl").value = j.url;
+      document.querySelector('[data-tab="work"]').click();
+    };
+    tr.querySelector('[data-act="del"]').onclick = async () => {
+      if (!confirm(`删除任务「${j.company} ${j.position || ""}」？`)) return;
+      try { await api("/api/jobs/delete", {json: {ids: [j.id]}}); loadJobs(); refreshStatus(); }
+      catch (e) { toast(e.message, 1); }
+    };
+    tb.appendChild(tr);
+  });
+}
+$("#jobSelAll").onchange = e => $$(".jck").forEach(c => c.checked = e.target.checked);
+$("#btnJobDelSel").onclick = async () => {
+  const ids = $$(".jck:checked").map(c => c.value);
+  if (!ids.length) return toast("先勾选要删除的任务", 1);
+  if (!confirm(`删除选中的 ${ids.length} 个任务？`)) return;
+  try {
+    const d = await api("/api/jobs/delete", {json: {ids}});
+    toast(d.msg || `已删除 ${d.deleted} 个任务`);
+    loadJobs(); loadPoolSummary(); loadPool(); refreshStatus();
+  } catch (e) { toast(e.message, 1); }
+};
+loadJobs();
+$("#btnAddJob").onclick = async () => {
+  try {
+    await api("/api/jobs", {json: {company: $("#jCompany").value, position: $("#jPosition").value, url: $("#jUrl").value}});
+    $("#jCompany").value = $("#jPosition").value = $("#jUrl").value = "";
+    loadJobs(); refreshStatus();
+  } catch (e) { toast(e.message, 1); }
+};
+
+// login 登录态
+async function loadLogins() {
+  try {
+    const d = await api("/api/session/logins");
+    const box = $("#loginList");
+    if (!d.logins.length) { box.innerHTML = '<div class="empty">还没有登录记录——输入站点地址点「打开去登录」，扫码完成即自动保存。</div>'; return; }
+    box.innerHTML = d.logins.map(l =>
+      `<div class="it"><span class="dom">${l.domain}</span><span class="muted">${l.last_at}</span>
+       <span style="margin-left:auto;display:flex;gap:8px">
+         <button class="btn sub mini" data-dom="${l.domain}" data-url="${l.url}">重新打开</button>
+         <button class="btn danger mini" data-forget="${l.domain}">忘记</button>
+       </span></div>`).join("");
+    box.querySelectorAll("[data-url]").forEach(b => b.onclick = () => openLogin(b.dataset.url));
+    box.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => {
+      if (!confirm(`忘记 ${b.dataset.forget} 的登录记录？下次访问该站需重新登录。`)) return;
+      try { await api("/api/session/logins/forget", {json: {domain: b.dataset.forget}}); loadLogins(); refreshStatus(); }
+      catch (e) { toast(e.message, 1); }
+    });
+  } catch (e) {}
+}
+async function openLogin(url) {
+  if (!url.trim()) return toast("先填站点地址", 1);
+  $("#btnLoginOpen") && ($("#btnLoginOpen").disabled = true);
+  try {
+    await api("/api/session/login", {json: {url}});
+    toast("浏览器已打开，请完成登录（扫码/验证码），登录态自动保存");
+  } catch (e) { toast("打开失败：" + e.message, 1); }
+  $("#btnLoginOpen") && ($("#btnLoginOpen").disabled = false);
+  refreshStatus(); loadLogins();
+}
+$("#btnLoginOpen").onclick = () => openLogin($("#lgUrl").value);
+$$("[data-lg]").forEach(b => b.onclick = () => { $("#lgUrl").value = b.dataset.lg; openLogin(b.dataset.lg); });
+
+// workbench
+let DRAFT = null;
+$("#btnStart").onclick = async () => {
+  const url = $("#wUrl").value.trim();
+  if (!url) return toast("先填网申链接", 1);
+  $("#btnStart").disabled = true;
+  try { await api("/api/session/start", {json: {url}}); }
+  catch (e) { toast("启动失败：" + e.message, 1); }
+  $("#btnStart").disabled = false; refreshStatus();
+};
+$("#btnDemo").onclick = async () => {
+  try { await api("/api/session/start", {json: {url: location.origin + "/demo"}}); }
+  catch (e) { toast("启动失败：" + e.message, 1); }
+  refreshStatus();
+};
+$("#btnClose").onclick = async () => { await api("/api/session/close", {json: {}}); refreshStatus(); };
+
+$("#btnExtract").onclick = async () => {
+  $("#btnExtract").disabled = true;
+  $("#extractInfo").textContent = "识别字段 + LLM 映射中…";
+  try {
+    const d = await api("/api/session/extract", {json: {}});
+    DRAFT = d.draft;
+    renderReview(DRAFT);
+    $("#extractInfo").textContent = `识别 ${DRAFT.fields.length} 个字段，${DRAFT.fills.length} 个已预填`;
+  } catch (e) {
+    $("#extractInfo").textContent = "失败：" + e.message;
+    log("[手动] 读取表单失败：" + e.message, 1);
+    toast(e.message, 1);
+  }
+  $("#btnExtract").disabled = false;
+};
+
+function renderReview(draft) {
+  const fillByIdx = {};
+  draft.fills.forEach(f => fillByIdx[f.idx] = f);
+  const tb = $("#reviewTable tbody");
+  tb.innerHTML = "";
+  draft.fields.forEach(f => {
+    const p = fillByIdx[f.idx];
+    const tr = document.createElement("tr");
+    const chk = p ? `<input type="checkbox" class="use" checked>` : `<input type="checkbox" class="use">`;
+    let valCell = '<span class="muted">（不填）</span>';
+    if (p) {
+      if (f.tag === "select") {
+        valCell = `<select class="val">` + (f.options || []).map(o =>
+          `<option ${o.text === p.value ? "selected" : ""}>${o.text}</option>`).join("") + `</select>`;
+      } else if (f.type === "radio" || f.type === "checkbox") {
+        valCell = `<input type="checkbox" class="valbool" ${p.value ? "checked" : ""}>`;
+      } else if (f.type === "file") {
+        valCell = `<span class="tag green">自动挂简历附件</span>`;
+      } else {
+        valCell = `<input type="text" class="val" value="${String(p.value).replace(/"/g, "&quot;")}">`;
+      }
+    }
+    tr.innerHTML = `<td>${chk}</td><td>${f.label || f.name || f.placeholder || ("字段" + f.idx)}${f.required ? " *" : ""}</td>
+      <td class="muted">${f.type}</td><td data-idx="${f.idx}" data-type="${f.type}" data-tag="${f.tag}">${valCell}</td>
+      <td class="conf">${p ? (p.reason || "") + " · " + p.confidence.toFixed(2) : ""}</td>`;
+    tb.appendChild(tr);
+  });
+  $("#reviewCard").style.display = "";
+}
+
+$("#btnFill").onclick = async () => {
+  const rows = document.querySelectorAll("#reviewTable tbody tr");
+  const fills = [];
+  rows.forEach(tr => {
+    if (!tr.querySelector(".use").checked) return;
+    const cell = tr.querySelector("td[data-idx]");
+    const idx = parseInt(cell.dataset.idx, 10);
+    const type = cell.dataset.type, tag = cell.dataset.tag;
+    let value;
+    if (tag === "select") value = cell.querySelector(".val").value;
+    else if (type === "radio" || type === "checkbox") value = cell.querySelector(".valbool").checked;
+    else if (type === "file") value = "ATTACH_RESUME";
+    else value = cell.querySelector(".val").value;
+    fills.push({idx, value});
+  });
+  if (!fills.length) return toast("没有勾选要写入的字段", 1);
+  $("#btnFill").disabled = true;
+  try {
+    const d = await api("/api/session/fill", {json: {fills}});
+    const bad = d.results.filter(r => !r.ok);
+    toast(`写入完成 ${d.results.length - bad.length}/${d.results.length}` + (bad.length ? "，失败字段见日志" : ""));
+    if (bad.length) log("[手动] 失败字段：" + bad.map(b => b.idx + ":" + b.error).join("；"), 1);
+  } catch (e) { toast("写入失败：" + e.message, 1); }
+  $("#btnFill").disabled = false;
+};
+</script>
+</body>
+</html>
