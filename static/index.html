@@ -62,6 +62,11 @@
   .tag.green { background: #e8f7ee; color: #1c8a4d; }
   .tag.orange { background: #fbf2ed; color: #b5542f; }
   .tag.red { background: #fbeaea; color: #a03030; }
+  .pmk { width: auto; padding: 2px 4px; font-size: 12px; border: 1px solid #ccd2e0; border-radius: 6px; background: #fff; }
+  .pmk.good { border-color: #1c8a4d; color: #1c8a4d; }
+  .pmk.bad { border-color: #a03030; color: #a03030; }
+  .pdel { background: none; border: 0; color: #a03030; cursor: pointer; font-size: 13px; padding: 2px 4px; }
+  .pdel:hover { color: #7d1f1f; }
   .muted { color: #6d778c; font-size: 12px; }
   .conf { font-size: 12px; color: #6d778c; }
 
@@ -179,18 +184,41 @@
           <option value="即将截止">即将截止</option>
           <option value="已失效">已失效</option>
         </select>
+        <select id="poolMark" style="flex:0 0 110px">
+          <option value="">全部标记</option>
+          <option value="__none__">未检查</option>
+          <option value="可用">可用</option>
+          <option value="链接不对">链接不对</option>
+          <option value="打不开">打不开</option>
+          <option value="已过期">已过期</option>
+          <option value="不合适">不合适</option>
+        </select>
         <label style="flex:0 0 auto;align-self:center" class="muted"><input type="checkbox" id="poolHasUrl" checked> 仅有效链接</label>
         <label style="flex:0 0 auto;align-self:center" class="muted"><input type="checkbox" id="poolHideExp" checked> 隐藏截止/失效</label>
         <button class="btn" id="btnPoolSearch" style="flex:0 0 auto">搜索</button>
       </div>
-      <table id="poolTable"><thead><tr><th style="width:30px">选</th><th>公司</th><th>岗位</th><th>匹配度</th><th>链接</th><th>方向 / 学历</th><th>地点</th><th>截止</th><th>状态</th><th>入口</th></tr></thead><tbody></tbody></table>
+      <div class="row" style="margin-top:8px">
+        <span class="muted" style="flex:0 0 auto;align-self:center">人工整理：</span>
+        <select id="poolBatchMark" style="flex:0 0 130px">
+          <option value="可用">标记为 可用</option>
+          <option value="链接不对">标记为 链接不对</option>
+          <option value="打不开">标记为 打不开</option>
+          <option value="已过期">标记为 已过期</option>
+          <option value="不合适">标记为 不合适</option>
+          <option value="">清除标记（未检查）</option>
+        </select>
+        <button class="btn sub" id="btnPoolBatchMark" style="flex:0 0 auto">应用到勾选</button>
+        <button class="btn danger" id="btnPoolDel" style="flex:0 0 auto">删除勾选</button>
+        <span class="muted" style="flex:1 1 auto;align-self:center">逐条检查：点「打开」进页面 → 回来在「标记」列选状态；坏的也可勾选后批量删除。</span>
+      </div>
+      <table id="poolTable"><thead><tr><th style="width:30px">选</th><th>公司</th><th>岗位</th><th>匹配度</th><th>链接</th><th>方向 / 学历</th><th>地点</th><th>截止</th><th>状态</th><th>标记</th><th>入口</th></tr></thead><tbody></tbody></table>
       <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
         <button class="btn sub" id="btnPoolPrev">上一页</button>
         <span id="poolPageInfo" class="muted"></span>
         <button class="btn sub" id="btnPoolNext">下一页</button>
         <button class="btn" id="btnPoolPick" style="margin-left:auto">加入任务（勾选）</button>
       </div>
-      <div class="muted" style="margin-top:8px">来源：飞书表格「2027届秋招校招信息汇总」（已按你更新的字段重新同步）。链接分类为规则自动判定：「直达岗位页」打开即是该岗位投递，「官网入口」需进站后自行定位岗位。截止 / 已失效 / 无有效链接的职位不能加入任务。</div>
+      <div class="muted" style="margin-top:8px">来源：飞书表格「2027届秋招校招信息汇总」（已按你更新的字段重新同步）。链接分类为规则自动判定：「直达岗位页」打开即是该岗位投递，「官网入口」需进站后自行定位岗位。截止 / 已失效 / 无有效链接 / 标记为链接不对、打不开、已过期、不合适的职位不会加入任务。</div>
     </div>
   </section>
 
@@ -531,7 +559,8 @@ async function loadPoolSummary() {
   try {
     const d = await api("/api/pool/summary");
     const bs = d.by_state || {};
-    $("#poolSummary").textContent = `共 ${d.total} 条 · 高匹配 ${d.by_match["⭐⭐⭐ 高匹配"] || 0} · 直达 ${d.by_link.direct || 0} · 招聘中 ${bs["招聘中"] || 0} · 即将截止 ${bs["即将截止"] || 0} · 已失效 ${bs["已失效"] || 0}`;
+    const bm = d.by_mark || {};
+    $("#poolSummary").textContent = `共 ${d.total} 条 · 高匹配 ${d.by_match["⭐⭐⭐ 高匹配"] || 0} · 直达 ${d.by_link.direct || 0} · 招聘中 ${bs["招聘中"] || 0} · 即将截止 ${bs["即将截止"] || 0} · 已失效 ${bs["已失效"] || 0} · 未检查 ${bm["未检查"] || 0} · 可用 ${bm["可用"] || 0}`;
     $("#stPoolSub").textContent = `直达 ${d.by_link.direct || 0} · 招聘中 ${bs["招聘中"] || 0} · 截止/失效 ${d.expired}`;
     const sel = $("#poolMatch");
     const cur = sel.value;
@@ -540,14 +569,17 @@ async function loadPoolSummary() {
     sel.value = cur;
   } catch (e) {}
 }
+const POOL_MARKS = ["可用", "链接不对", "打不开", "已过期", "不合适"];
+const POOL_BAD_MARKS = ["链接不对", "打不开", "已过期", "不合适"];
 async function loadPool() {
   const q = encodeURIComponent($("#poolQ").value.trim());
   const m = encodeURIComponent($("#poolMatch").value);
   const lt = encodeURIComponent($("#poolLinkType").value);
   const st = encodeURIComponent($("#poolState").value);
+  const mk = encodeURIComponent($("#poolMark").value);
   const hu = $("#poolHasUrl").checked ? 1 : 0;
   const he = $("#poolHideExp").checked ? 1 : 0;
-  const d = await api(`/api/pool?q=${q}&match=${m}&link_type=${lt}&state=${st}&has_url=${hu}&hide_expired=${he}&page=${POOL.page}&size=${POOL.size}`);
+  const d = await api(`/api/pool?q=${q}&match=${m}&link_type=${lt}&state=${st}&mark=${mk}&has_url=${hu}&hide_expired=${he}&page=${POOL.page}&size=${POOL.size}`);
   POOL.total = d.total;
   const tb = $("#poolTable tbody");
   tb.innerHTML = "";
@@ -556,10 +588,15 @@ async function loadPool() {
     const matchTag = p.match === "⭐⭐⭐ 高匹配" ? "tag green" : "tag";
     const ltInfo = LINK_LABEL[p.link_type] || ["未知", "tag"];
     const link = p.url ? `<a href="${p.url}" data-openbot="${p.url}" title="在自动化浏览器打开（自动携带登录态）">打开</a>` : (p.link_type === "email" ? '<span class="muted">邮箱投递</span>' : '<span class="muted">无</span>');
-    const pickable = p.url && !p.expired;
-    tr.style.opacity = p.expired ? ".45" : "";
+    const bad = POOL_BAD_MARKS.includes(p.mark);
+    tr.style.opacity = (p.expired || bad) ? ".45" : "";
     const stateTag = p.apply_state ? `<span class="${STATE_TAG[p.apply_state] || "tag"}">${p.apply_state}</span>` : "";
-    tr.innerHTML = `<td><input type="checkbox" class="pck" value="${p.id}" ${pickable ? "" : "disabled"}></td>
+    const mkCls = p.mark === "可用" ? "pmk good" : (bad ? "pmk bad" : "pmk");
+    const mkSel = `<select class="${mkCls}" data-id="${p.id}">`
+      + `<option value="" ${p.mark ? "" : "selected"}>未检查</option>`
+      + POOL_MARKS.map(v => `<option value="${v}" ${p.mark === v ? "selected" : ""}>${v}</option>`).join("")
+      + `</select>`;
+    tr.innerHTML = `<td><input type="checkbox" class="pck" value="${p.id}"></td>
       <td>${p.company}</td>
       <td style="max-width:220px">${p.title}</td>
       <td><span class="${matchTag}">${p.match || ""}</span></td>
@@ -568,6 +605,7 @@ async function loadPool() {
       <td class="muted" style="max-width:120px">${p.location || ""}</td>
       <td class="muted">${p.deadline || "-"}${p.expired && p.deadline ? '<br><span style="color:#b5542f">已截止</span>' : ""}</td>
       <td>${stateTag}${p.status === "已加入任务" ? '<br><span class="tag blue">已加入任务</span>' : ""}</td>
+      <td>${mkSel}<button class="pdel" data-id="${p.id}" title="从职位库删除本条">✕</button></td>
       <td>${link}</td>`;
     tb.appendChild(tr);
   });
@@ -583,6 +621,49 @@ $("#poolLinkType").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolState").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolHasUrl").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolHideExp").onchange = () => { POOL.page = 1; loadPool(); };
+$("#poolMark").onchange = () => { POOL.page = 1; loadPool(); };
+// 人工整理：逐行标记 / 删除（事件委托，翻页后仍有效）
+$("#poolTable").addEventListener("change", async e => {
+  const sel = e.target.closest("select.pmk");
+  if (!sel) return;
+  try {
+    await api("/api/pool/mark", {json: {ids: [sel.dataset.id], mark: sel.value}});
+    toast(sel.value ? `已标记为「${sel.value}」` : "已恢复为未检查");
+    loadPool(); loadPoolSummary();
+  } catch (err) { toast(err.message, 1); loadPool(); }
+});
+$("#poolTable").addEventListener("click", async e => {
+  const btn = e.target.closest("button.pdel");
+  if (!btn) return;
+  const row = btn.closest("tr");
+  const name = row ? `${row.children[1].textContent} ${row.children[2].textContent}` : "本条";
+  if (!confirm(`确定从职位库删除「${name}」？此操作不可恢复。`)) return;
+  try {
+    await api("/api/pool/delete", {json: {ids: [btn.dataset.id]}});
+    toast("已删除");
+    loadPool(); loadPoolSummary(); refreshStatus();
+  } catch (err) { toast(err.message, 1); }
+});
+$("#btnPoolBatchMark").onclick = async () => {
+  const ids = [...document.querySelectorAll(".pck:checked")].map(c => c.value);
+  if (!ids.length) return toast("先勾选要标记的职位", 1);
+  const mark = $("#poolBatchMark").value;
+  try {
+    const d = await api("/api/pool/mark", {json: {ids, mark}});
+    toast(`已把 ${d.marked} 条标记为「${mark || "未检查"}」`);
+    loadPool(); loadPoolSummary();
+  } catch (e) { toast(e.message, 1); }
+};
+$("#btnPoolDel").onclick = async () => {
+  const ids = [...document.querySelectorAll(".pck:checked")].map(c => c.value);
+  if (!ids.length) return toast("先勾选要删除的职位", 1);
+  if (!confirm(`确定从职位库删除勾选的 ${ids.length} 条记录？此操作不可恢复。`)) return;
+  try {
+    const d = await api("/api/pool/delete", {json: {ids}});
+    toast(`已删除 ${d.deleted} 条`);
+    loadPool(); loadPoolSummary(); refreshStatus();
+  } catch (e) { toast(e.message, 1); }
+};
 $("#btnPoolPrev").onclick = () => { if (POOL.page > 1) { POOL.page--; loadPool(); } };
 $("#btnPoolNext").onclick = () => { POOL.page++; loadPool(); };
 $("#btnPoolPick").onclick = async () => {

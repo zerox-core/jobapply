@@ -325,9 +325,14 @@ def _dead(p, today):
     return bool(p.get("deadline")) and p["deadline"] < today
 
 
+# 人工整理标记：用户逐条检查后手动打的状态（mark 字段，空 = 未检查）
+POOL_MARKS = {"可用", "链接不对", "打不开", "已过期", "不合适"}
+POOL_BAD_MARKS = {"链接不对", "打不开", "已过期", "不合适"}
+
+
 @app.get("/api/pool")
 def get_pool(q: str = "", match: str = "", link_type: str = "", state: str = "",
-             has_url: bool = False, hide_expired: bool = False,
+             mark: str = "", has_url: bool = False, hide_expired: bool = False,
              page: int = 1, size: int = 30):
     pool = load_json("pool.json", [])
     ql = (q or "").strip().lower()
@@ -338,6 +343,11 @@ def get_pool(q: str = "", match: str = "", link_type: str = "", state: str = "",
         if hide_expired and expired:
             continue
         if state and (p.get("apply_state") or "") != state:
+            continue
+        if mark == "__none__":
+            if p.get("mark"):
+                continue
+        elif mark and (p.get("mark") or "") != mark:
             continue
         if link_type and p.get("link_type") != link_type:
             continue
@@ -364,7 +374,7 @@ def get_pool(q: str = "", match: str = "", link_type: str = "", state: str = "",
 def pool_summary():
     pool = load_json("pool.json", [])
     today = _today()
-    by_match, by_link, by_state = {}, {}, {}
+    by_match, by_link, by_state, by_mark = {}, {}, {}, {}
     expired = 0
     for p in pool:
         by_match[p.get("match") or "未评估"] = by_match.get(p.get("match") or "未评估", 0) + 1
@@ -372,11 +382,14 @@ def pool_summary():
         by_link[lt] = by_link.get(lt, 0) + 1
         st = p.get("apply_state") or "未知"
         by_state[st] = by_state.get(st, 0) + 1
+        mk = p.get("mark") or "未检查"
+        by_mark[mk] = by_mark.get(mk, 0) + 1
         if _dead(p, today):
             expired += 1
     no_url = sum(1 for p in pool if not p.get("url"))
     return {"ok": True, "total": len(pool), "by_match": by_match, "by_link": by_link,
-            "by_state": by_state, "no_url": no_url, "expired": expired, "today": today}
+            "by_state": by_state, "by_mark": by_mark,
+            "no_url": no_url, "expired": expired, "today": today}
 
 
 @app.post("/api/pool/pick")
@@ -395,7 +408,8 @@ async def pool_pick(request: Request):
         if p.get("id") not in ids:
             continue
         expired = _dead(p, today)
-        if expired or not p.get("url") or (p.get("company", ""), p.get("title", "")) in existing:
+        if expired or not p.get("url") or p.get("mark") in POOL_BAD_MARKS \
+                or (p.get("company", ""), p.get("title", "")) in existing:
             skipped += 1
             continue
         jobs.append({"id": uuid.uuid4().hex[:8],
@@ -421,6 +435,45 @@ async def pool_pick(request: Request):
         save_json("pool.json", pool)
     emit("jobs", f"从职位库加入 {added} 个任务（跳过 {skipped}：重复或无投递链接）")
     return {"ok": True, "added": added, "skipped": skipped}
+
+
+@app.post("/api/pool/mark")
+async def pool_mark(request: Request):
+    """人工整理：给职位库条目打/清除标记（可用 / 链接不对 / 打不开 / 已过期 / 不合适）。"""
+    body = await request.json()
+    ids = set(body.get("ids") or [])
+    mark = (body.get("mark") or "").strip()
+    if not ids:
+        return JSONResponse({"ok": False, "error": "未选择任何职位"}, status_code=400)
+    if mark and mark not in POOL_MARKS:
+        return JSONResponse({"ok": False, "error": f"非法标记：{mark}"}, status_code=400)
+    pool = load_json("pool.json", [])
+    n = 0
+    for p in pool:
+        if p.get("id") in ids:
+            if mark:
+                p["mark"] = mark
+            else:
+                p.pop("mark", None)
+            n += 1
+    save_json("pool.json", pool)
+    emit("pool", f"已把 {n} 条职位标记为「{mark or '未检查'}」")
+    return {"ok": True, "marked": n}
+
+
+@app.post("/api/pool/delete")
+async def pool_delete(request: Request):
+    """人工整理：从职位库删除条目（不影响已加入任务的任务）。"""
+    body = await request.json()
+    ids = set(body.get("ids") or [])
+    if not ids:
+        return JSONResponse({"ok": False, "error": "未选择任何职位"}, status_code=400)
+    pool = load_json("pool.json", [])
+    pool2 = [p for p in pool if p.get("id") not in ids]
+    save_json("pool.json", pool2)
+    n = len(pool) - len(pool2)
+    emit("pool", f"已从职位库删除 {n} 条记录")
+    return {"ok": True, "deleted": n}
 
 
 # ---------------- 浏览器会话 ----------------
