@@ -195,6 +195,12 @@
         </select>
         <label style="flex:0 0 auto;align-self:center" class="muted"><input type="checkbox" id="poolHasUrl" checked> 仅有效链接</label>
         <label style="flex:0 0 auto;align-self:center" class="muted"><input type="checkbox" id="poolHideExp" checked> 隐藏截止/失效</label>
+        <select id="poolSort" style="flex:0 0 140px">
+          <option value="">默认顺序</option>
+          <option value="deadline_asc">截止最早（紧急优先）</option>
+          <option value="deadline_desc">截止最晚</option>
+          <option value="random">随机打乱</option>
+        </select>
         <button class="btn" id="btnPoolSearch" style="flex:0 0 auto">搜索</button>
       </div>
       <div class="row" style="margin-top:8px">
@@ -552,7 +558,7 @@ document.addEventListener("click", e => {
 });
 
 // pool 职位库
-let POOL = {page: 1, total: 0, size: 30};
+let POOL = {page: 1, total: 0, size: 30, seed: String(Date.now())};
 const LINK_LABEL = {direct: ["直达", "tag green"], entry: ["入口", "tag"], email: ["邮箱", "tag"], invalid: ["无效", "tag red"], none: ["无", "tag"]};
 const STATE_TAG = {"招聘中": "tag green", "即将截止": "tag orange", "已失效": "tag red"};
 async function loadPoolSummary() {
@@ -579,7 +585,9 @@ async function loadPool() {
   const mk = encodeURIComponent($("#poolMark").value);
   const hu = $("#poolHasUrl").checked ? 1 : 0;
   const he = $("#poolHideExp").checked ? 1 : 0;
-  const d = await api(`/api/pool?q=${q}&match=${m}&link_type=${lt}&state=${st}&mark=${mk}&has_url=${hu}&hide_expired=${he}&page=${POOL.page}&size=${POOL.size}`);
+  const so = encodeURIComponent($("#poolSort").value);
+  const sd = encodeURIComponent(POOL.seed);
+  const d = await api(`/api/pool?q=${q}&match=${m}&link_type=${lt}&state=${st}&mark=${mk}&has_url=${hu}&hide_expired=${he}&sort=${so}&seed=${sd}&page=${POOL.page}&size=${POOL.size}`);
   POOL.total = d.total;
   const tb = $("#poolTable tbody");
   tb.innerHTML = "";
@@ -614,7 +622,7 @@ async function loadPool() {
   $("#btnPoolPrev").disabled = POOL.page <= 1;
   $("#btnPoolNext").disabled = POOL.page >= pages;
 }
-$("#btnPoolSearch").onclick = () => { POOL.page = 1; loadPool(); };
+$("#btnPoolSearch").onclick = () => { POOL.page = 1; if ($("#poolSort").value === "random") POOL.seed = String(Date.now()); loadPool(); };
 $("#poolQ").addEventListener("keydown", e => { if (e.key === "Enter") { POOL.page = 1; loadPool(); } });
 $("#poolMatch").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolLinkType").onchange = () => { POOL.page = 1; loadPool(); };
@@ -622,6 +630,7 @@ $("#poolState").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolHasUrl").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolHideExp").onchange = () => { POOL.page = 1; loadPool(); };
 $("#poolMark").onchange = () => { POOL.page = 1; loadPool(); };
+$("#poolSort").onchange = () => { POOL.page = 1; if ($("#poolSort").value === "random") POOL.seed = String(Date.now()); loadPool(); };
 // 人工整理：逐行标记 / 删除（事件委托，翻页后仍有效）
 $("#poolTable").addEventListener("change", async e => {
   const sel = e.target.closest("select.pmk");

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import threading
 import time
 import uuid
@@ -333,6 +334,7 @@ POOL_BAD_MARKS = {"链接不对", "打不开", "已过期", "不合适"}
 @app.get("/api/pool")
 def get_pool(q: str = "", match: str = "", link_type: str = "", state: str = "",
              mark: str = "", has_url: bool = False, hide_expired: bool = False,
+             sort: str = "", seed: str = "",
              page: int = 1, size: int = 30):
     pool = load_json("pool.json", [])
     ql = (q or "").strip().lower()
@@ -363,6 +365,14 @@ def get_pool(q: str = "", match: str = "", link_type: str = "", state: str = "",
         item = dict(p)
         item["expired"] = expired
         out.append(item)
+    # 排序：截止日期升/降序（空截止日期固定排最后）；random 用同一 seed 打乱（翻页稳定）
+    if sort in ("deadline_asc", "deadline_desc"):
+        withdl = [p for p in out if p.get("deadline")]
+        nodl = [p for p in out if not p.get("deadline")]
+        withdl.sort(key=lambda p: p["deadline"], reverse=(sort == "deadline_desc"))
+        out = withdl + nodl
+    elif sort == "random":
+        random.Random(seed or str(_today())).shuffle(out)
     total = len(out)
     page = max(1, page)
     size = min(max(1, size), 100)
@@ -504,6 +514,23 @@ def _do_start(url, headless=False):
         return session.goto(url)
 
 
+def _safe_goto(url):
+    """带自愈的打开：浏览器窗口被关掉/崩溃后，goto 会抛 TargetClosedError——
+    此时清掉僵尸会话、重开浏览器（登录态在 browser_profile 里，不丢）再试一次。"""
+    global session
+    if session is not None:
+        try:
+            return session.goto(url)
+        except Exception as e:
+            emit("session", f"检测到浏览器已关闭（{str(e)[:60]}…），自动重开后重试")
+            try:
+                session.close()
+            except Exception:
+                pass
+            session = None
+    return _do_start(url)
+
+
 @app.post("/api/session/start")
 async def session_start(request: Request):
     body = await request.json()
@@ -511,7 +538,11 @@ async def session_start(request: Request):
     headless = bool(body.get("headless", False))
     if not url:
         return JSONResponse({"ok": False, "error": "缺少 url"}, status_code=400)
-    final_url = await asyncio.to_thread(_do_start, url, headless)
+    try:
+        final_url = await asyncio.to_thread(_do_start, url, headless)
+    except Exception as e:
+        emit("error", f"浏览器启动失败：{str(e)[:200]}")
+        return JSONResponse({"ok": False, "error": f"浏览器启动失败：{str(e)[:200]}"}, status_code=502)
     emit("session", f"浏览器已打开：{final_url}")
     return {"ok": True, "url": final_url}
 
@@ -523,10 +554,15 @@ async def session_open(request: Request):
     url = (body.get("url") or "").strip()
     if not url:
         return JSONResponse({"ok": False, "error": "缺少 url"}, status_code=400)
-    if session is None:
-        final_url = await asyncio.to_thread(_do_start, url)
-    else:
-        final_url = await asyncio.to_thread(session.goto, url)
+    try:
+        final_url = await asyncio.to_thread(_safe_goto, url)
+    except Exception as e:
+        msg = str(e)[:200]
+        friendly = "打开失败：浏览器可能已被关闭，已尝试自动重开但仍失败；请再点一次，若仍失败请重启服务"
+        if "net::ERR" in msg or "Timeout" in msg:
+            friendly = f"打开失败：目标网站无法访问或响应超时（{msg}）"
+        emit("error", friendly)
+        return JSONResponse({"ok": False, "error": friendly}, status_code=502)
     emit("session", f"已在自动化浏览器打开：{final_url}")
     return {"ok": True, "url": final_url}
 
