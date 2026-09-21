@@ -280,9 +280,10 @@
         <input type="url" id="wUrl" placeholder="网申入口链接">
         <button class="btn" id="btnStart" style="flex:0 0 auto">启动并打开</button>
         <button class="btn sub" id="btnDemo" style="flex:0 0 auto">打开演示表单</button>
+        <button class="btn sub" id="btnEnterApply" style="flex:0 0 auto">找投递入口</button>
         <button class="btn gray" id="btnClose" style="flex:0 0 auto">关闭浏览器</button>
       </div>
-      <div class="muted">浏览器打开后，在浏览器里手动完成登录 / 验证码 / 进入网申表单页，然后点第 2 步。入口页（首页）没有表单是正常的——要先进到真正的网申表单页。</div>
+      <div class="muted">浏览器打开后，在浏览器里手动完成登录 / 验证码 / 进入网申表单页，然后点第 2 步。入口页（首页）没有表单是正常的——要先进到真正的网申表单页。在职位详情页时可以点「找投递入口」，AI 会自动找到「立即申请 / 投递简历」按钮并点进去。</div>
     </div>
     <div class="card">
       <h2><span class="stepno">2</span>读取页面并 AI 预填</h2>
@@ -785,6 +786,20 @@ $("#btnDemo").onclick = async () => {
   refreshStatus();
 };
 $("#btnClose").onclick = async () => { await api("/api/session/close", {json: {}}); refreshStatus(); };
+$("#btnEnterApply").onclick = async () => {
+  $("#btnEnterApply").disabled = true;
+  log("[手动] 正在当前页找投递入口（立即申请 / 投递简历）…");
+  try {
+    const d = await api("/api/session/enter_apply", {json: {}});
+    if (d.ok) {
+      log(`[手动] 已点击「${d.clicked}」，当前页：${d.url} —— 进到表单页后点第 2 步`);
+      refreshStatus();
+    } else {
+      log("[手动] " + (d.error || "没找到入口"), 1);
+    }
+  } catch (e) { log("[手动] 找投递入口失败：" + e.message, 1); }
+  $("#btnEnterApply").disabled = false;
+};
 
 $("#btnExtract").onclick = async () => {
   $("#btnExtract").disabled = true;

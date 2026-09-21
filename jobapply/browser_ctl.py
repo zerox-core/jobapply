@@ -198,6 +198,17 @@ class BrowserSession:
     def _op_url(self):
         return self._page.url
 
+    def _op_newest(self):
+        """切到最新打开的标签页（点「立即申请」弹出子页的场景），并尽量等它加载完。"""
+        pages = [p for p in self._ctx.pages if not p.is_closed()]
+        if pages:
+            self._page = pages[-1]
+            try:
+                self._page.wait_for_load_state("domcontentloaded", timeout=20000)
+            except Exception:
+                pass
+        return self._page.url
+
     def _op_eval(self, js, arg):
         return self._safe_eval(self._page.evaluate, js, arg)
 
@@ -226,6 +237,9 @@ class BrowserSession:
 
     def current_url(self):
         return self._call("url")
+
+    def switch_to_newest(self):
+        return self._call("newest")
 
     def clear_cookies(self, domain):
         return self._call("clear_cookies", domain)

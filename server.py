@@ -567,6 +567,58 @@ async def session_open(request: Request):
     return {"ok": True, "url": final_url}
 
 
+ENTER_APPLY_JS = r"""
+(() => {
+  const KEYS = ['立即申请', '投递职位', '申请职位', '投递简历', '立即投递', '马上申请', '我要申请', '立即报名', '立即应聘', '应聘', '网申', 'Apply Now', 'Apply'];
+  const NEG = ['已申请', '已投递', '查看进度', '收藏', '分享', '下载', '预览', '登录', '注册'];
+  const cands = [];
+  const els = document.querySelectorAll('button, a, div[role=button], span[role=button], input[type=button], input[type=submit]');
+  els.forEach(el => {
+    const t = (((el.innerText || '') + (el.value || ''))).trim().replace(/\s+/g, ' ');
+    if (!t || t.length > 20) return;
+    if (NEG.some(k => t.includes(k))) return;
+    let score = -1;
+    KEYS.forEach((k, i) => {
+      if (t === k) score = Math.max(score, 1000 - i);
+      else if (t.includes(k)) score = Math.max(score, 500 - i);
+    });
+    if (score < 0) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 20 || r.height < 10) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return;
+    cands.push({score, text: t, el});
+  });
+  if (!cands.length) return 'no_entry';
+  cands.sort((a, b) => b.score - a.score);
+  cands[0].el.scrollIntoView({block: 'center'});
+  cands[0].el.click();
+  return 'clicked:' + cands[0].text;
+})()
+"""
+
+
+@app.post("/api/session/enter_apply")
+async def session_enter_apply():
+    """AI 找投递入口：在当前页定位「立即申请 / 投递简历」类按钮并点击，
+    然后切到最新标签（弹新页场景）并等加载——只负责点到表单页，绝不提交。"""
+    if session is None:
+        return JSONResponse({"ok": False, "error": "浏览器未启动，请先打开职位链接"}, status_code=400)
+    try:
+        r = await asyncio.to_thread(session.eval_js, ENTER_APPLY_JS)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": repr(e)[:300]}, status_code=502)
+    if not (isinstance(r, str) and r.startswith("clicked:")):
+        return {"ok": False, "error": "当前页没找到「申请 / 投递」类按钮——先进到职位详情页再试"}
+    await asyncio.sleep(4)
+    try:
+        url = await asyncio.to_thread(session.switch_to_newest)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": repr(e)[:300]}, status_code=502)
+    emit("session", f"已点投递入口「{r[8:]}」，当前页：{url}")
+    return {"ok": True, "clicked": r[8:], "url": url}
+
+
 def _do_extract():
     """同步版读取+预填（端点与对话助手共用）。失败抛 RuntimeError（friendly 文案）。"""
     if session is None:
