@@ -121,6 +121,8 @@ class BrowserSession:
                 ev.set()
                 return
             try:
+                if op != "close":
+                    self._ensure_page()
                 box["r"] = getattr(self, "_op_" + op)(*args)
             except Exception as e:
                 box["e"] = repr(e)
@@ -135,6 +137,21 @@ class BrowserSession:
         if "e" in box:
             raise RuntimeError(box["e"])
         return box.get("r")
+
+    def _ensure_page(self):
+        """self._page 被关掉（用户手动关了标签页 / 标签崩溃）后自动换绑：
+        优先绑到还活着的第一个标签，全没了就新开一页——否则后续所有操作
+        都会抛 TargetClosedError（表现成 500 / 打开失败）。"""
+        try:
+            if self._page is not None and not self._page.is_closed():
+                return
+        except Exception:
+            pass
+        try:
+            pages = [p for p in self._ctx.pages if not p.is_closed()]
+        except Exception:
+            pages = []
+        self._page = pages[0] if pages else self._ctx.new_page()
 
     # ---------------- ops（worker 线程内执行） ----------------
     def _safe_eval(self, fn, *args):
